@@ -35,12 +35,12 @@ WindowJob parameters:
 
 Setup Kafka Topics:
 
-kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-0:2181 --partitions 5 --replication-factor 2 --topic regular-input
-kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-0:2181 --partitions 5 --replication-factor 2 --topic query-input
-kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-0:2181 --partitions 5 --replication-factor 2 --topic window-result
+    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-0:2181 --partitions 5 --replication-factor 2 --topic regular-input
+    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-0:2181 --partitions 5 --replication-factor 2 --topic query-input
+    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-0:2181 --partitions 5 --replication-factor 2 --topic window-result
 
 Run Flink Jobs:
 
-bin/flink run -p 5 -c com.dataartisans.querywindow.WindowJob ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-0:2181,aljoscha-bdutil-w-1:2181,aljoscha-bdutil-w-2:2181 --brokers aljoscha-bdutil-w-2:6667,aljoscha-bdutil-w-0:6667,aljoscha-bdutil-w-1:6667 --source regular-input --sink window-result --query query-input --window-size 600000 --checkpoint 10000 --state-path "hdfs://aljoscha-bdutil-m:8020/flink-checkpoints"
+    bin/flink run -p 5 -c com.dataartisans.querywindow.WindowJob ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-0:2181,aljoscha-bdutil-w-1:2181,aljoscha-bdutil-w-2:2181 --brokers aljoscha-bdutil-w-2:6667,aljoscha-bdutil-w-0:6667,aljoscha-bdutil-w-1:6667 --source regular-input --sink window-result --query query-input --window-size 600000 --checkpoint 10000 --state-path "hdfs://aljoscha-bdutil-m:8020/flink-checkpoints"
 
-bin/flink run -p 5 -c com.dataartisans.querywindow.DataGenerator ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-2:2181,aljoscha-bdutil-w-0:2181,aljoscha-bdutil-w-1:2181 --brokers aljoscha-bdutil-w-2:6667,aljoscha-bdutil-w-0:6667,aljoscha-bdutil-w-1:6667 --sink regular-input --sleep 0 --num-keys 16384000
+    bin/flink run -p 5 -c com.dataartisans.querywindow.DataGenerator ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-2:2181,aljoscha-bdutil-w-0:2181,aljoscha-bdutil-w-1:2181 --brokers aljoscha-bdutil-w-2:6667,aljoscha-bdutil-w-0:6667,aljoscha-bdutil-w-1:6667 --sink regular-input --sleep 0 --num-keys 16384000
