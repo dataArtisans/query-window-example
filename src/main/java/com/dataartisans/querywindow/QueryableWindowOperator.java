@@ -19,7 +19,7 @@ package com.dataartisans.querywindow;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.runtime.state.AbstractStateBackend;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
@@ -105,7 +105,7 @@ class QueryableWindowOperator
 	public StreamTaskState snapshotOperatorState(long checkpointId, long timestamp) throws Exception {
 		StreamTaskState taskState = super.snapshotOperatorState(checkpointId, timestamp);
 
-		AbstractStateBackend.CheckpointStateOutputView out = getStateBackend().createCheckpointStateOutputView(checkpointId, timestamp);
+		StateBackend.CheckpointStateOutputView out = getStateBackend().createCheckpointStateOutputView(checkpointId, timestamp);
 
 		int numKeys = state.size();
 		out.writeInt(numKeys);
@@ -120,8 +120,8 @@ class QueryableWindowOperator
 	}
 
 	@Override
-	public void restoreState(StreamTaskState taskState) throws Exception {
-		super.restoreState(taskState);
+	public void restoreState(StreamTaskState taskState, long recoveryTimestamp) throws Exception {
+		super.restoreState(taskState, recoveryTimestamp);
 
 
 		@SuppressWarnings("unchecked")
