@@ -19,6 +19,7 @@ package com.dataartisans.querywindow;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.runtime.state.AsynchronousStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
@@ -102,21 +103,24 @@ class QueryableWindowOperator
 	}
 
 	@Override
-	public StreamTaskState snapshotOperatorState(long checkpointId, long timestamp) throws Exception {
+	public StreamTaskState snapshotOperatorState(final long checkpointId, final long timestamp) throws Exception {
 		StreamTaskState taskState = super.snapshotOperatorState(checkpointId, timestamp);
 
-		StateBackend.CheckpointStateOutputView out = getStateBackend().createCheckpointStateOutputView(checkpointId, timestamp);
+		final Map<Long, Long> stateSnapshot = new HashMap<>(state);
 
-		int numKeys = state.size();
-		out.writeInt(numKeys);
+		AsynchronousStateHandle<DataInputView> asyncState = new DataInputViewAsynchronousStateHandle(
+				checkpointId,
+				timestamp,
+				stateSnapshot,
+				getStateBackend());
 
-		for (Map.Entry<Long, Long> value: state.entrySet()) {
-			out.writeLong(value.getKey());
-			out.writeLong(value.getValue());
-		}
-
-		taskState.setOperatorState(out.closeAndGetHandle());
+		taskState.setOperatorState(asyncState);
 		return taskState;
+	}
+
+	@Override
+	public void notifyOfCompletedCheckpoint(long checkpointId) throws Exception {
+		super.notifyOfCompletedCheckpoint(checkpointId);
 	}
 
 	@Override
@@ -136,6 +140,41 @@ class QueryableWindowOperator
 			long key = in.readLong();
 			long value = in.readLong();
 			state.put(key, value);
+		}
+	}
+
+	private static class DataInputViewAsynchronousStateHandle extends AsynchronousStateHandle<DataInputView> {
+
+		private final long checkpointId;
+		private final long timestamp;
+		private Map<Long, Long> stateSnapshot;
+		private StateBackend<?> backend;
+
+		public DataInputViewAsynchronousStateHandle(long checkpointId,
+				long timestamp,
+				Map<Long, Long> stateSnapshot,
+				StateBackend<?> backend) {
+			this.checkpointId = checkpointId;
+			this.timestamp = timestamp;
+			this.stateSnapshot = stateSnapshot;
+			this.backend = backend;
+		}
+
+		@Override
+		public StateHandle<DataInputView> materialize() throws Exception {
+			StateBackend.CheckpointStateOutputView out = backend.createCheckpointStateOutputView(
+					checkpointId,
+					timestamp);
+
+			int numKeys = stateSnapshot.size();
+			out.writeInt(numKeys);
+
+			for (Map.Entry<Long, Long> value: stateSnapshot.entrySet()) {
+				out.writeLong(value.getKey());
+				out.writeLong(value.getValue());
+			}
+
+			return out.closeAndGetHandle();
 		}
 	}
 }
