@@ -24,7 +24,7 @@ import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.streaming.util.serialization.DeserializationSchema;
 import org.apache.flink.streaming.util.serialization.SerializationSchema;
 
-public class WindowResultLongLongSchema implements DeserializationSchema<WindowResult<Long, Tuple2<Long, Long>>>, SerializationSchema<WindowResult<Long, Tuple2<Long, Long>>, byte[]> {
+public class WindowResultLongLongSchema implements DeserializationSchema<WindowResult<Long, Tuple2<Long, Long>>>, SerializationSchema<WindowResult<Long, Tuple2<Long, Long>>> {
 
 	private static final long serialVersionUID = 1L;
 

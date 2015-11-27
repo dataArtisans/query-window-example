@@ -22,7 +22,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.util.serialization.DeserializationSchema;
 import org.apache.flink.streaming.util.serialization.SerializationSchema;
 
-public class SimpleLongSchema implements DeserializationSchema<Long>, SerializationSchema<Long, byte[]> {
+public class SimpleLongSchema implements DeserializationSchema<Long>, SerializationSchema<Long> {
 
 	private static final long serialVersionUID = 1L;
 
