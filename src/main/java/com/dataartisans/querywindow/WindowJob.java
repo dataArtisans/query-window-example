@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
+import org.apache.flink.streaming.util.serialization.TypeInformationSerializationSchema;
 
 import java.util.Properties;
 
@@ -40,7 +41,6 @@ public class WindowJob {
 		String zookeeper = params.get("zookeeper", "localhost:2181");
 		String brokers = params.get("brokers", "localhost:9092");
 		String sourceTopic = params.getRequired("source");
-		String queryTopic = params.getRequired("query");
 		String sinkTopic = params.getRequired("sink");
 		Long windowSize = params.getLong("window-size", 10_000);
 		Long checkpointInterval = params.getLong("checkpoint", 1000);
@@ -65,19 +65,6 @@ public class WindowJob {
 						FlinkKafkaConsumer.OffsetStore.FLINK_ZOOKEEPER,
 						FlinkKafkaConsumer.FetcherType.LEGACY_LOW_LEVEL));
 
-		KeyedStream<Long, Long> queryStream = env
-				.addSource(new FlinkKafkaConsumer<>(queryTopic,
-						new SimpleLongSchema(),
-						props,
-						FlinkKafkaConsumer.OffsetStore.FLINK_ZOOKEEPER,
-						FlinkKafkaConsumer.FetcherType.LEGACY_LOW_LEVEL))
-				.keyBy(new KeySelector<Long, Long>() {
-					@Override
-					public Long getKey(Long value) throws Exception {
-						return value;
-					}
-				});
-
 
 		KeyedStream<Tuple2<Long, Long>, Long> withOne = inputStream.map(new MapFunction<Long, Tuple2<Long, Long>>() {
 			@Override
@@ -95,12 +82,15 @@ public class WindowJob {
 		TupleTypeInfo<Tuple2<Long, Long>> resultType =
 				new TupleTypeInfo<>(BasicTypeInfo.LONG_TYPE_INFO, BasicTypeInfo.LONG_TYPE_INFO);
 
-		DataStream<WindowResult<Long, Tuple2<Long, Long>>> result = withOne.connect(queryStream)
-				.transform("Query Window",
-						new WindowResultType<>(resultType, BasicTypeInfo.LONG_TYPE_INFO),
-						new QueryableWindowOperator(windowSize));
+		final TypeInformationSerializationSchema<Tuple2<Long, Long>> tupleSerializationSchema =
+				new TypeInformationSerializationSchema<>(resultType, env.getConfig());
 
-		result.addSink(new FlinkKafkaProducer<>(brokers, sinkTopic, new WindowResultLongLongSchema())).disableChaining();
+//		DataStream<Tuple2<Long, Long>> result = withOne
+//				.transform("Query Window",
+//						resultType,
+//						new QueryableWindowOperator(windowSize));
+//
+//		result.addSink(new FlinkKafkaProducer<>(brokers, sinkTopic, tupleSerializationSchema)).disableChaining();
 
 		env.execute("Query Window Example");
 	}

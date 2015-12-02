@@ -17,41 +17,96 @@
  */
 package com.dataartisans.querywindow;
 
+import akka.actor.Actor;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
+import akka.japi.Creator;
+import com.typesafe.config.Config;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.state.AsynchronousStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
-import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.operators.Triggerable;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import scala.Option;
+import scala.Some;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 class QueryableWindowOperator
-		extends AbstractStreamOperator<WindowResult<Long, Tuple2<Long, Long>>>
-		implements TwoInputStreamOperator<Tuple2<Long, Long>, Long, WindowResult<Long, Tuple2<Long, Long>>>, Triggerable {
+		extends AbstractStreamOperator<Tuple2<Long, Long>>
+		implements OneInputStreamOperator<Tuple2<Long, Long>, Tuple2<Long, Long>>, Triggerable, QueryableKeyValueState<Long, Long> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(QueryableWindowOperator.class);
 
 	private final Long windowSize;
 	private Map<Long, Long> state;
 
-	public QueryableWindowOperator(Long windowSize) {
+	private final FiniteDuration timeout = new FiniteDuration(20, TimeUnit.SECONDS);
+
+	private ActorSystem actorSystem;
+	private RegistrationService registrationService;
+
+	public QueryableWindowOperator(Long windowSize, RegistrationService registrationService) {
 		this.windowSize = windowSize;
+		this.registrationService = registrationService;
 	}
 
 	@Override
 	public void open() throws Exception {
 		super.open();
+
+		LOG.info("Opening QueryableWindowOperator {}." , this);
+
 		state = new HashMap<>();
 		registerTimer(System.currentTimeMillis() + windowSize, this);
+
+		Configuration config = new Configuration();
+		Option<scala.Tuple2<String, Object>> remoting = new Some<>(new scala.Tuple2<String, Object>("", 0));
+
+		Config akkaConfig = AkkaUtils.getAkkaConfig(config, remoting);
+
+		actorSystem = ActorSystem.create("queryableWindow", akkaConfig);
+
+
+		ActorRef responseActor = actorSystem.actorOf(Props.create(new ResponseActorCreator(this)), "queryResponse");
+
+		String akkaURL = AkkaUtils.getAkkaURL(actorSystem, responseActor);
+
+		registrationService.start();
+		registrationService.registerActor(getRuntimeContext().getIndexOfThisSubtask(), akkaURL);
 	}
 
 	@Override
-	public void processElement1(StreamRecord<Tuple2<Long, Long>> streamRecord) throws Exception {
+	public void close() throws Exception {
+		super.close();
+
+		LOG.info("Closing QueyrableWindowOperator {}.", this);
+
+		if (actorSystem != null) {
+			actorSystem.shutdown();
+			actorSystem.awaitTermination(timeout);
+
+			actorSystem = null;
+		}
+	}
+
+	@Override
+	public void processElement(StreamRecord<Tuple2<Long, Long>> streamRecord) throws Exception {
 		Long key = streamRecord.getValue().f0;
 
 		Long previous = state.get(key);
@@ -63,18 +118,7 @@ class QueryableWindowOperator
 	}
 
 	@Override
-	public void processElement2(StreamRecord<Long> streamRecord) throws Exception {
-		Long key = streamRecord.getValue();
-
-		Long result = state.get(key);
-		if (result != null) {
-			Tuple2<Long, Long> resultTuple = Tuple2.of(key, result);
-			WindowResult<Long, Tuple2<Long, Long>> windowResult = WindowResult.queryResult(key, resultTuple);
-			output.collect(new StreamRecord<>(windowResult, streamRecord.getTimestamp()));
-		} else {
-			output.collect(new StreamRecord<>(WindowResult.<Tuple2<Long, Long>, Long>queryResult(key, null), streamRecord.getTimestamp()));
-		}
-	}
+	public void processWatermark(Watermark watermark) throws Exception {}
 
 
 	@Override
@@ -84,22 +128,12 @@ class QueryableWindowOperator
 
 		for (Map.Entry<Long, Long> value: state.entrySet()) {
 			Tuple2<Long, Long> resultTuple = Tuple2.of(value.getKey(), value.getValue());
-			output.collect(result.replace(WindowResult.<Tuple2<Long, Long>, Long>regularResult(resultTuple)));
+			output.collect(result.replace(resultTuple));
 		}
 
 		state.clear();
 
 		registerTimer(System.currentTimeMillis() + windowSize, this);
-	}
-
-	@Override
-	public void processWatermark1(Watermark watermark) throws Exception {
-
-	}
-
-	@Override
-	public void processWatermark2(Watermark watermark) throws Exception {
-
 	}
 
 	@Override
@@ -127,7 +161,6 @@ class QueryableWindowOperator
 	public void restoreState(StreamTaskState taskState, long recoveryTimestamp) throws Exception {
 		super.restoreState(taskState, recoveryTimestamp);
 
-
 		@SuppressWarnings("unchecked")
 		StateHandle<DataInputView> inputState = (StateHandle<DataInputView>) taskState.getOperatorState();
 		DataInputView in = inputState.getState(getUserCodeClassloader());
@@ -140,6 +173,36 @@ class QueryableWindowOperator
 			long key = in.readLong();
 			long value = in.readLong();
 			state.put(key, value);
+		}
+	}
+
+	@Override
+	public Long getValue(Long key) {
+		if (state != null) {
+			return state.get(key);
+		} else {
+			return null;
+		}
+	}
+
+	@Override
+	public String toString() {
+		RuntimeContext ctx = getRuntimeContext();
+
+		return ctx.getTaskName() + " (" + ctx.getIndexOfThisSubtask() + "/" + ctx.getNumberOfParallelSubtasks() + ")";
+	}
+
+	public static class ResponseActorCreator implements Creator<ResponseActor> {
+
+		private final QueryableKeyValueState<Long, Long> kvState;
+
+		public ResponseActorCreator(QueryableKeyValueState<Long, Long> kvState) {
+			this.kvState = kvState;
+		}
+
+		@Override
+		public ResponseActor<Long, Long> create() throws Exception {
+			return new ResponseActor<Long, Long>(kvState);
 		}
 	}
 
