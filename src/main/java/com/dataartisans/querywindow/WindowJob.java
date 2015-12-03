@@ -17,6 +17,8 @@
  */
 package com.dataartisans.querywindow;
 
+import com.dataartisans.querywindow.zookeeper.ZooKeeperConfiguration;
+import com.dataartisans.querywindow.zookeeper.ZooKeeperRegistrationService;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.java.functions.KeySelector;
@@ -39,6 +41,7 @@ public class WindowJob {
 		ParameterTool params = ParameterTool.fromArgs(args);
 
 		String zookeeper = params.get("zookeeper", "localhost:2181");
+		String zooKeeperPath = params.get("zkPath", "/akkaQuery");
 		String brokers = params.get("brokers", "localhost:9092");
 		String sourceTopic = params.getRequired("source");
 		String sinkTopic = params.getRequired("sink");
@@ -57,6 +60,10 @@ public class WindowJob {
 		props.setProperty("group.id", "window-query-example");
 		props.setProperty("auto.commit.enable", "false");
 		props.setProperty("auto.offset.reset", "largest");
+
+		ZooKeeperConfiguration zooKeeperConfiguration = new ZooKeeperConfiguration(zooKeeperPath, zookeeper);
+
+		RegistrationService registrationService = new ZooKeeperRegistrationService(zooKeeperConfiguration);
 
 		DataStream<Long> inputStream = env
 				.addSource(new FlinkKafkaConsumer<>(sourceTopic,
@@ -85,12 +92,12 @@ public class WindowJob {
 		final TypeInformationSerializationSchema<Tuple2<Long, Long>> tupleSerializationSchema =
 				new TypeInformationSerializationSchema<>(resultType, env.getConfig());
 
-//		DataStream<Tuple2<Long, Long>> result = withOne
-//				.transform("Query Window",
-//						resultType,
-//						new QueryableWindowOperator(windowSize));
-//
-//		result.addSink(new FlinkKafkaProducer<>(brokers, sinkTopic, tupleSerializationSchema)).disableChaining();
+		DataStream<Tuple2<Long, Long>> result = withOne
+				.transform("Query Window",
+						resultType,
+						new QueryableWindowOperator(windowSize, registrationService));
+
+		result.addSink(new FlinkKafkaProducer<>(brokers, sinkTopic, tupleSerializationSchema)).disableChaining();
 
 		env.execute("Query Window Example");
 	}

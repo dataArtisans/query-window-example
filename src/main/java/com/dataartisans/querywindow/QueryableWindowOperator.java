@@ -93,9 +93,8 @@ class QueryableWindowOperator
 
 	@Override
 	public void close() throws Exception {
-		super.close();
-
 		LOG.info("Closing QueyrableWindowOperator {}.", this);
+		super.close();
 
 		registrationService.stop();
 
@@ -177,6 +176,11 @@ class QueryableWindowOperator
 
 	@Override
 	public Long getValue(Long key) throws WrongKeyPartitionException {
+		if (key.hashCode() % getRuntimeContext().getNumberOfParallelSubtasks() != getRuntimeContext().getIndexOfThisSubtask()) {
+			throw new WrongKeyPartitionException("Key " + key + " is not part of the partition " +
+					"of subtask " + getRuntimeContext().getIndexOfThisSubtask());
+		}
+
 		if (state != null) {
 			return state.get(key);
 		} else {
