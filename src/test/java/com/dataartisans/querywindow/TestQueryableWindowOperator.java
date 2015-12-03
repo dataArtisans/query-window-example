@@ -29,6 +29,7 @@ import com.dataartisans.querywindow.messages.QueryState;
 import com.dataartisans.querywindow.zookeeper.ZooKeeperConfiguration;
 import com.dataartisans.querywindow.zookeeper.ZooKeeperRegistrationService;
 import com.dataartisans.querywindow.zookeeper.ZooKeeperRetrievalService;
+import com.typesafe.config.Config;
 import org.apache.curator.test.TestingServer;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -45,6 +46,9 @@ import org.apache.flink.test.util.TestBaseUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import scala.Option;
+import scala.Some;
+import scala.Tuple2;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.FiniteDuration;
@@ -71,7 +75,10 @@ public class TestQueryableWindowOperator {
 
 	@BeforeClass
 	public static void setup() throws Exception {
-		actorSystem = ActorSystem.create("TestingActorSystem", AkkaUtils.getDefaultAkkaConfig());
+		Option<Tuple2<String, Object>> remoting = new Some<>(new scala.Tuple2<String, Object>("", 0));
+
+		Config akkaConfig = AkkaUtils.getAkkaConfig(config, remoting);
+		actorSystem = ActorSystem.create("TestingActorSystem", akkaConfig);
 
 		zkServer = new TestingServer(true);
 
