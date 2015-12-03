@@ -58,6 +58,8 @@ Run Flink Jobs:
 
     bin/flink run -p 5 -c com.dataartisans.querywindow.DataGenerator ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-5:2181,aljoscha-bdutil-w-6:2181,aljoscha-bdutil-w-7:2181 --brokers aljoscha-bdutil-w-5:6667,aljoscha-bdutil-w-6:6667,aljoscha-bdutil-w-7:6667 --sink regular-input --sleep 0 --num-keys 64000000
     
-Run AkkaStateQuery
+Run AkkaStateQuery:
 
     java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --queryTimeout "5 seconds" --queryAttempts 10
+    
+The repl can be terminated by typing `stop` or `quit`.
