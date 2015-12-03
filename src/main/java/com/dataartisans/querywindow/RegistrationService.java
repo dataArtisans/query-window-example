@@ -16,24 +16,12 @@
  * limitations under the License.
  */
 
-package com.dataartisans.querywindow
+package com.dataartisans.querywindow;
 
-import akka.actor.{Status, Actor}
-import com.dataartisans.querywindow.QueryMessages.{QueryResponse, QueryState}
+public interface RegistrationService {
+	void start();
 
-class ResponseActor[K, V](val queryableKeyValueState: QueryableKeyValueState[K, V]) extends Actor {
+	void stop();
 
-  override def receive: Receive = {
-    case QueryState(key: K) =>
-      println("ResponseActor " + key)
-
-      val value = queryableKeyValueState.getValue(key)
-
-      if (value != null) {
-        sender ! QueryResponse(key, value)
-      } else {
-        sender ! Status.Failure(new Exception("Could not find state for key " + key + "."))
-      }
-
-  }
+	void registerActor(int partition, String actorURL) throws Exception;
 }

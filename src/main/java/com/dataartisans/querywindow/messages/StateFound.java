@@ -16,10 +16,25 @@
  * limitations under the License.
  */
 
-package com.dataartisans.querywindow
+package com.dataartisans.querywindow.messages;
 
-trait RegistrationService {
-  def start(): Unit
+import java.io.Serializable;
 
-  def registerActor(partition: Int, actorURL: String)
+public class StateFound<K extends Serializable, V extends Serializable> implements QueryResponse {
+	private final K key;
+	private final V value;
+
+	public StateFound(K key, V value) {
+		this.key = key;
+		this.value = value;
+	}
+
+	public V getValue() {
+		return value;
+	}
+
+	@Override
+	public String toString() {
+		return "StateFound(key: " + key + ", value: " + value + ")";
+	}
 }

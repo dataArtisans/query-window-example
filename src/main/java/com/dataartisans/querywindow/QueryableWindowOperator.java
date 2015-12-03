@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,11 +17,10 @@
  */
 package com.dataartisans.querywindow;
 
-import akka.actor.Actor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import akka.japi.Creator;
+import com.dataartisans.querywindow.actors.ResponseActor;
 import com.typesafe.config.Config;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -57,11 +56,13 @@ class QueryableWindowOperator
 	private Map<Long, Long> state;
 
 	private final FiniteDuration timeout = new FiniteDuration(20, TimeUnit.SECONDS);
+	private final RegistrationService registrationService;
 
 	private ActorSystem actorSystem;
-	private RegistrationService registrationService;
 
-	public QueryableWindowOperator(Long windowSize, RegistrationService registrationService) {
+	public QueryableWindowOperator(
+			Long windowSize,
+			RegistrationService registrationService) {
 		this.windowSize = windowSize;
 		this.registrationService = registrationService;
 	}
@@ -80,10 +81,10 @@ class QueryableWindowOperator
 
 		Config akkaConfig = AkkaUtils.getAkkaConfig(config, remoting);
 
+		LOG.info("Start actory system.");
 		actorSystem = ActorSystem.create("queryableWindow", akkaConfig);
 
-
-		ActorRef responseActor = actorSystem.actorOf(Props.create(new ResponseActorCreator(this)), "queryResponse");
+		ActorRef responseActor = actorSystem.actorOf(Props.create(ResponseActor.class, this), "responseActor");
 
 		String akkaURL = AkkaUtils.getAkkaURL(actorSystem, responseActor);
 
@@ -96,6 +97,8 @@ class QueryableWindowOperator
 		super.close();
 
 		LOG.info("Closing QueyrableWindowOperator {}.", this);
+
+		registrationService.stop();
 
 		if (actorSystem != null) {
 			actorSystem.shutdown();
@@ -177,7 +180,7 @@ class QueryableWindowOperator
 	}
 
 	@Override
-	public Long getValue(Long key) {
+	public Long getValue(Long key) throws WrongKeyPartitionException {
 		if (state != null) {
 			return state.get(key);
 		} else {
@@ -190,20 +193,6 @@ class QueryableWindowOperator
 		RuntimeContext ctx = getRuntimeContext();
 
 		return ctx.getTaskName() + " (" + ctx.getIndexOfThisSubtask() + "/" + ctx.getNumberOfParallelSubtasks() + ")";
-	}
-
-	public static class ResponseActorCreator implements Creator<ResponseActor> {
-
-		private final QueryableKeyValueState<Long, Long> kvState;
-
-		public ResponseActorCreator(QueryableKeyValueState<Long, Long> kvState) {
-			this.kvState = kvState;
-		}
-
-		@Override
-		public ResponseActor<Long, Long> create() throws Exception {
-			return new ResponseActor<Long, Long>(kvState);
-		}
 	}
 
 	private static class DataInputViewAsynchronousStateHandle extends AsynchronousStateHandle<DataInputView> {

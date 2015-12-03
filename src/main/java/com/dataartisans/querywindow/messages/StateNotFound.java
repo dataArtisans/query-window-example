@@ -16,14 +16,20 @@
  * limitations under the License.
  */
 
-package com.dataartisans.querywindow
+package com.dataartisans.querywindow.messages;
 
-import akka.actor.{ActorSystem, ActorRef}
+import java.io.Serializable;
 
-trait RetrievalService[K] {
-  def start(): Unit
+public class StateNotFound<K extends Serializable> implements QueryResponse {
 
-  def retrieveActorURL(key: K): Option[String]
+	private final K key;
 
-  def refreshActorCache(): Unit
+	public StateNotFound(K key) {
+		this.key = key;
+	}
+
+	@Override
+	public String toString() {
+		return "StateNotFound(key: " + key + ")";
+	}
 }
