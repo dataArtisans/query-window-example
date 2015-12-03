@@ -51,6 +51,13 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 	}
 
 	@Override
+	public void postStop() throws Exception {
+		if (retrievalService != null) {
+			retrievalService.stop();
+		}
+	}
+
+	@Override
 	public void onReceive(Object message) throws Exception {
 		if (message instanceof QueryState) {
 			@SuppressWarnings("unchecked")

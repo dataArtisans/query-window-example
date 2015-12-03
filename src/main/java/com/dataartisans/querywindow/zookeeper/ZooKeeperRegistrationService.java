@@ -20,12 +20,17 @@ package com.dataartisans.querywindow.zookeeper;
 
 import com.dataartisans.querywindow.RegistrationService;
 import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.utils.ZKPaths;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
 public class ZooKeeperRegistrationService implements RegistrationService, Serializable {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperRegistrationService.class);
 
 	private final ZooKeeperConfiguration configuration;
 	private transient CuratorFramework client;
@@ -47,6 +52,12 @@ public class ZooKeeperRegistrationService implements RegistrationService, Serial
 
 	@Override
 	public void stop() {
+		try {
+			ZKPaths.deleteChildren(client.getZookeeperClient().getZooKeeper(), "/", true);
+		} catch (Exception e) {
+			LOG.warn("Error while cleaning the ZooKeeper nodes.", e);
+		}
+
 		if (client != null) {
 			client.close();
 			client = null;
