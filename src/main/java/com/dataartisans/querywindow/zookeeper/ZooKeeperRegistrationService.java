@@ -21,12 +21,16 @@ package com.dataartisans.querywindow.zookeeper;
 import com.dataartisans.querywindow.RegistrationService;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.utils.ZKPaths;
+import org.apache.flink.runtime.net.ConnectionUtils;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 
 public class ZooKeeperRegistrationService implements RegistrationService, Serializable {
 
@@ -92,6 +96,26 @@ public class ZooKeeperRegistrationService implements RegistrationService, Serial
 			}
 		} else {
 			throw new RuntimeException("CuratorFramework client has not been initialized.");
+		}
+	}
+
+	@Override
+	public String getConnectingHostname() throws IOException {
+		String[] zkAddresses = configuration.getZkQuorum().split(",");
+
+		if (zkAddresses.length <= 0) {
+			throw new RuntimeException("There was no ZkQuorum specified. This is required to find" +
+					"out the connecting hostname.");
+		} else {
+			String zkAddress = zkAddresses[0];
+
+			String[] addressParts = zkAddress.split(":");
+			String host = addressParts[0];
+			int port = Integer.parseInt(addressParts[1]);
+
+			InetSocketAddress targetAddress = new InetSocketAddress(host, port);
+
+			return ConnectionUtils.findConnectingAddress(targetAddress, 2000, 400).getHostName();
 		}
 	}
 }

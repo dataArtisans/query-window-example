@@ -75,8 +75,12 @@ class QueryableWindowOperator
 		state = new HashMap<>();
 		registerTimer(System.currentTimeMillis() + windowSize, this);
 
+		registrationService.start();
+
+		String hostname = registrationService.getConnectingHostname();
+
 		Configuration config = new Configuration();
-		Option<scala.Tuple2<String, Object>> remoting = new Some<>(new scala.Tuple2<String, Object>("", 0));
+		Option<scala.Tuple2<String, Object>> remoting = new Some<>(new scala.Tuple2<String, Object>(hostname, 0));
 
 		Config akkaConfig = AkkaUtils.getAkkaConfig(config, remoting);
 
@@ -87,7 +91,6 @@ class QueryableWindowOperator
 
 		String akkaURL = AkkaUtils.getAkkaURL(actorSystem, responseActor);
 
-		registrationService.start();
 		registrationService.registerActor(getRuntimeContext().getIndexOfThisSubtask(), akkaURL);
 	}
 
