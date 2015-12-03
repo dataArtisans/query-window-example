@@ -64,6 +64,9 @@ public class TestQueryableWindowOperator {
 	private static int parallelism = numberTaskManager * numberSlots;
 	private static long windowSize = 1000;
 
+	private static int queryAttempts = 10;
+	private static FiniteDuration queryTimeout = new FiniteDuration(1, TimeUnit.SECONDS);
+
 	private static FiniteDuration timeout = new FiniteDuration(20, TimeUnit.SECONDS);
 
 	@BeforeClass
@@ -110,7 +113,7 @@ public class TestQueryableWindowOperator {
 
 		leader.tell(new JobManagerMessages.SubmitJob(job, ListeningBehaviour.DETACHED));
 
-		ActorRef queryActor = actorSystem.actorOf(Props.create(QueryActor.class, retrievalService), "QueryActor");
+		ActorRef queryActor = actorSystem.actorOf(Props.create(QueryActor.class, retrievalService, queryTimeout, queryAttempts), "QueryActor");
 
 		Random rnd = new Random();
 
