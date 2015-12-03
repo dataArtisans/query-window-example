@@ -25,22 +25,27 @@ import akka.dispatch.Recover;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
 import com.dataartisans.querywindow.RetrievalService;
+import com.dataartisans.querywindow.WrongKeyPartitionException;
 import com.dataartisans.querywindow.messages.QueryState;
 import scala.concurrent.Future;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.io.Serializable;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 
 public class QueryActor<K extends Serializable> extends UntypedActor {
 	private final RetrievalService<K> retrievalService;
 
-	private final FiniteDuration askTimeout = new FiniteDuration(3, TimeUnit.SECONDS);
-	private final int tries = 10;
+	private final FiniteDuration askTimeout;
+	private final int queryAttempts;
 
-	public QueryActor(RetrievalService<K> retrievalService) throws Exception {
+	public QueryActor(
+			RetrievalService<K> retrievalService,
+			FiniteDuration timeout,
+			int queryAttempts) throws Exception {
 		this.retrievalService = retrievalService;
+		this.askTimeout = timeout;
+		this.queryAttempts = queryAttempts;
 
 		retrievalService.start();
 	}
@@ -48,9 +53,10 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 	@Override
 	public void onReceive(Object message) throws Exception {
 		if (message instanceof QueryState) {
+			@SuppressWarnings("unchecked")
 			QueryState<K> queryState = (QueryState<K>) message;
 
-			Future<Object> futureResult = queryStateFutureWithFailover(tries, queryState);
+			Future<Object> futureResult = queryStateFutureWithFailover(queryAttempts, queryState);
 
 			Patterns.pipe(futureResult, getContext().dispatcher()).to(getSender());
 		}
@@ -64,11 +70,27 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 
 			Future<Object> futureResult = Patterns.ask(actorSelection, queryState, new Timeout(askTimeout));
 
+			@SuppressWarnings("unchecked")
 			Future<Object> recoveredResult = futureResult.recoverWith(new Recover<Future<Object>>() {
 				@Override
-				public Future<Object> recover(Throwable failure) throws Throwable {
-					retrievalService.refreshActorCache();
-					return Futures.failed(failure);
+				public Future<Object> recover(final Throwable failure) throws Throwable {
+					if (failure instanceof WrongKeyPartitionException) {
+						return Patterns.after(
+								askTimeout,
+								getContext().system().scheduler(),
+								getContext().dispatcher(),
+								new Callable<Future<Object>>() {
+									@Override
+									public Future<Object> call() throws Exception {
+										retrievalService.refreshActorCache();
+										return Futures.failed(failure);
+									}
+								});
+					} else {
+						retrievalService.refreshActorCache();
+						return Futures.failed(failure);
+					}
+
 				}
 			}, getContext().dispatcher());
 
@@ -89,7 +111,8 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 	}
 
 	public Future<Object> queryStateFutureWithFailover(final int tries, final QueryState<K> queryState) {
-		return queryStateFuture(queryState).recoverWith(new Recover<Future<Object>>() {
+		@SuppressWarnings("unchecked")
+		Future<Object> result = queryStateFuture(queryState).recoverWith(new Recover<Future<Object>>() {
 			@Override
 			public Future<Object> recover(Throwable failure) throws Throwable {
 				if (tries > 0) {
@@ -99,5 +122,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 				}
 			}
 		}, getContext().dispatcher());
+
+		return result;
 	}
 }
