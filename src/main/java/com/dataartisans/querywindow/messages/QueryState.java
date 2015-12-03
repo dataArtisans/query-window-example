@@ -16,11 +16,23 @@
  * limitations under the License.
  */
 
-package com.dataartisans.querywindow
+package com.dataartisans.querywindow.messages;
 
-object QueryMessages {
+import java.io.Serializable;
 
-  case class QueryState[T](key: T)
+public class QueryState<K extends Serializable> implements Serializable {
+	private final K key;
 
-  case class QueryResponse[T, V](key: T, value: V)
+	public QueryState(K key) {
+		this.key = key;
+	}
+
+	public K getKey() {
+		return key;
+	}
+
+	@Override
+	public String toString() {
+		return "QueryState(" + key + ")";
+	}
 }

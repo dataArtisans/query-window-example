@@ -16,8 +16,9 @@
  * limitations under the License.
  */
 
-package com.dataartisans.querywindow
+package com.dataartisans.querywindow.messages;
 
-trait QueryableKeyValueState[K, V] {
-  def getValue(key: K): V
+import java.io.Serializable;
+
+public interface QueryResponse extends Serializable {
 }

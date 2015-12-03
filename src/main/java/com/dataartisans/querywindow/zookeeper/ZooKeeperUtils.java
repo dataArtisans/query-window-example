@@ -16,12 +16,31 @@
  * limitations under the License.
  */
 
-package com.dataartisans.querywindow
+package com.dataartisans.querywindow.zookeeper;
 
-case class ZooKeeperConfiguration(
-    rootPath: String,
-    zkQuorum: String,
-    sessionTimeout: Int = 60000,
-    connectionTimeout: Int = 15000,
-    retryWait: Int = 5000,
-    maxRetryAttempts: Int = 3)
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+
+public class ZooKeeperUtils {
+	public static CuratorFramework startCuratorFramework(
+		String root,
+		String zkQuorum,
+		int sessionTimeout,
+		int connectionTimeout,
+		int retryWait,
+		int maxRetryAttempts) {
+
+		CuratorFramework result = CuratorFrameworkFactory.builder()
+			.connectString(zkQuorum)
+			.sessionTimeoutMs(sessionTimeout)
+			.connectionTimeoutMs(connectionTimeout)
+			.retryPolicy(new ExponentialBackoffRetry(retryWait, maxRetryAttempts))
+			.namespace(root.startsWith("/") ? root.substring(1) : root)
+			.build();
+
+		result.start();
+
+		return result;
+	}
+}
