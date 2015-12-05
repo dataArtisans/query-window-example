@@ -49,7 +49,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-class QueryableWindowOperator
+public class QueryableWindowOperator
 		extends AbstractStreamOperator<Tuple2<Long, Long>>
 		implements OneInputStreamOperator<Tuple2<Long, Long>, Tuple2<Long, Long>>, Triggerable, QueryableKeyValueState<Long, Long> {
 
