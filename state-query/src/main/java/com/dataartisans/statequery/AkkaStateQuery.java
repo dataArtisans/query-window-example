@@ -56,6 +56,12 @@ public class AkkaStateQuery {
 				.ofType(String.class)
 				.defaultsTo("/akkaQuery");
 
+		OptionSpec<String> lookupTimeoutOption = parser
+				.accepts("lookupTimeout")
+				.withRequiredArg()
+				.ofType(String.class)
+				.defaultsTo("10 seconds");
+
 		OptionSpec<String> queryTimeoutOption = parser
 				.accepts("queryTimeout")
 				.withRequiredArg()
@@ -72,18 +78,28 @@ public class AkkaStateQuery {
 
 		String zookeeper = zookeeperOption.value(options);
 		String zkPath = zkPathOption.value(options);
+		String lookupTimeoutStr = lookupTimeoutOption.value(options);
 		String queryTimeoutStr = queryTimeoutOption.value(options);
 		int queryAttempts = queryAttemptsOption.value(options);
 
+		FiniteDuration lookupTimeout;
 		FiniteDuration queryTimeout;
 		FiniteDuration askTimeout;
+
+		Duration lookupDuration = FiniteDuration.create(lookupTimeoutStr);
+
+		if (lookupDuration instanceof FiniteDuration) {
+			lookupTimeout = (FiniteDuration) lookupDuration;
+		} else {
+			throw new Exception("Lookup timeout has to be finite.");
+		}
 
 		Duration duration = FiniteDuration.create(queryTimeoutStr);
 
 		if (duration instanceof FiniteDuration) {
 			queryTimeout = (FiniteDuration) duration;
 		} else {
-			throw new Exception("timeout has to be finite.");
+			throw new Exception("Query timeout has to be finite.");
 		}
 
 		askTimeout = queryTimeout.mul(queryAttempts);
@@ -99,6 +115,7 @@ public class AkkaStateQuery {
 			Props.create(
 				QueryActor.class,
 				retrievalService,
+				lookupTimeout,
 				queryTimeout,
 				queryAttempts),
 			"queryActor");
