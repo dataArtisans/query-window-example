@@ -41,6 +41,7 @@ WindowJob parameters:
  
 AkkaStateQuery parameters:
  - zkPath: ZooKeeper path where the actors of the queryable window operator register
+ - lookupTimeout: Timeout for the ActorRef resolution
  - queryTimeout: Timeout for the queries from the QueryActor to the ResponseActor (running in the 
  queryable window operator)
  - queryAttempts: Number of query attempts before the state query fails.
@@ -60,6 +61,6 @@ Run Flink Jobs:
     
 Run AkkaStateQuery:
 
-    java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --queryTimeout "5 seconds" --queryAttempts 10
+    java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --lookupTimeout "10 seconds" --queryTimeout "5 seconds" --queryAttempts 10
     
 The repl can be terminated by typing `stop` or `quit`.
