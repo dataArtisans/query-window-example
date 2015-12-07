@@ -18,6 +18,8 @@
 
 package com.dataartisans.querycommon.actors;
 
+import akka.actor.ActorNotFound;
+import akka.actor.ActorRef;
 import akka.actor.ActorSelection;
 import akka.actor.UntypedActor;
 import akka.dispatch.Futures;
@@ -27,24 +29,33 @@ import akka.util.Timeout;
 import com.dataartisans.querycommon.RetrievalService;
 import com.dataartisans.querycommon.WrongKeyPartitionException;
 import com.dataartisans.querycommon.messages.QueryState;
+import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 public class QueryActor<K extends Serializable> extends UntypedActor {
 	private final RetrievalService<K> retrievalService;
 
 	private final FiniteDuration askTimeout;
+	private final FiniteDuration lookupTimeout;
 	private final int queryAttempts;
+
+	private final Map<K, ActorRef> cache = new HashMap<>();
+	private final Object cacheLock = new Object();
 
 	public QueryActor(
 			RetrievalService<K> retrievalService,
-			FiniteDuration timeout,
+			FiniteDuration lookupTimeout,
+			FiniteDuration queryTimeout,
 			int queryAttempts) throws Exception {
 		this.retrievalService = retrievalService;
-		this.askTimeout = timeout;
+		this.askTimeout = queryTimeout;
+		this.lookupTimeout = lookupTimeout;
 		this.queryAttempts = queryAttempts;
 
 		retrievalService.start();
@@ -69,13 +80,66 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 		}
 	}
 
+	public void refreshCache() throws Exception {
+		synchronized (cacheLock) {
+			cache.clear();
+		}
+
+		retrievalService.refreshActorCache();
+	}
+
+	public ActorRef getActorRef(K key) throws Exception {
+		synchronized (cacheLock) {
+			ActorRef result = cache.get(key);
+
+			if(result != null) {
+				return result;
+			}
+		}
+
+		String actorURL = retrievalService.retrieveActorURL(key);
+
+		if (actorURL == null) {
+			return null;
+		} else {
+			ActorSelection selection = getContext().system().actorSelection(actorURL);
+
+			try {
+				ActorRef actorRef = Await.result(selection.resolveOne(lookupTimeout), lookupTimeout);
+
+				synchronized (cacheLock) {
+					cache.put(key, actorRef);
+				}
+
+				return actorRef;
+			} catch (ActorNotFound e) {
+				return null;
+			}
+		}
+	}
+
 	public Future<Object> queryStateFuture(final QueryState<K> queryState) {
-		String actorURL = retrievalService.retrieveActorURL(queryState.getKey());
+		ActorRef actorRef;
 
-		if (actorURL != null) {
-			ActorSelection actorSelection = getContext().system().actorSelection(actorURL);
+		try {
+			actorRef = getActorRef(queryState.getKey());
+		} catch (final Exception e) {
+			return Patterns.after(
+					askTimeout,
+					getContext().system().scheduler(),
+					getContext().dispatcher(),
+					new Callable<Future<Object>>() {
+						@Override
+						public Future<Object> call() throws Exception {
+							refreshCache();
+							return Futures.failed(new Exception("Error occurred while retrieving the ActorRef.", e));
+						}
+					}
+			);
+		}
 
-			Future<Object> futureResult = Patterns.ask(actorSelection, queryState, new Timeout(askTimeout));
+		if (actorRef != null) {
+			Future<Object> futureResult = Patterns.ask(actorRef, queryState, new Timeout(askTimeout));
 
 			@SuppressWarnings("unchecked")
 			Future<Object> recoveredResult = futureResult.recoverWith(new Recover<Future<Object>>() {
@@ -89,12 +153,12 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 								new Callable<Future<Object>>() {
 									@Override
 									public Future<Object> call() throws Exception {
-										retrievalService.refreshActorCache();
+										refreshCache();
 										return Futures.failed(failure);
 									}
 								});
 					} else {
-						retrievalService.refreshActorCache();
+						refreshCache();
 						return Futures.failed(failure);
 					}
 
@@ -110,7 +174,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 				new Callable<Future<Object>>() {
 					@Override
 					public Future<Object> call() throws Exception {
-						retrievalService.refreshActorCache();
+						refreshCache();
 						return Futures.failed(new Exception("Could not retrieve actor for state with key " + queryState.getKey() + "."));
 					}
 				});
