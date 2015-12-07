@@ -45,6 +45,7 @@ import scala.Option;
 import scala.Some;
 import scala.concurrent.duration.FiniteDuration;
 
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -61,7 +62,9 @@ public class QueryableWindowOperator
 	private final FiniteDuration timeout = new FiniteDuration(20, TimeUnit.SECONDS);
 	private final RegistrationService registrationService;
 
-	private ActorSystem actorSystem;
+	private static ActorSystem actorSystem;
+	private static int actorSystemUsers = 0;
+	private static final Object actorSystemLock = new Object();
 
 	public QueryableWindowOperator(
 			Long windowSize,
@@ -82,16 +85,11 @@ public class QueryableWindowOperator
 		registrationService.start();
 
 		String hostname = registrationService.getConnectingHostname();
+		String actorName = "responseActor_" + getRuntimeContext().getIndexOfThisSubtask();
 
-		Configuration config = new Configuration();
-		Option<scala.Tuple2<String, Object>> remoting = new Some<>(new scala.Tuple2<String, Object>(hostname, 0));
+		initializeActorSystem(hostname);
 
-		Config akkaConfig = AkkaUtils.getAkkaConfig(config, remoting);
-
-		LOG.info("Start actory system.");
-		actorSystem = ActorSystem.create("queryableWindow", akkaConfig);
-
-		ActorRef responseActor = actorSystem.actorOf(Props.create(ResponseActor.class, this), "responseActor");
+		ActorRef responseActor = actorSystem.actorOf(Props.create(ResponseActor.class, this), actorName);
 
 		String akkaURL = AkkaUtils.getAkkaURL(actorSystem, responseActor);
 
@@ -105,12 +103,7 @@ public class QueryableWindowOperator
 
 		registrationService.stop();
 
-		if (actorSystem != null) {
-			actorSystem.shutdown();
-			actorSystem.awaitTermination(timeout);
-
-			actorSystem = null;
-		}
+		closeActorSystem(timeout);
 	}
 
 	@Override
@@ -205,6 +198,37 @@ public class QueryableWindowOperator
 		RuntimeContext ctx = getRuntimeContext();
 
 		return ctx.getTaskName() + " (" + ctx.getIndexOfThisSubtask() + "/" + ctx.getNumberOfParallelSubtasks() + ")";
+	}
+
+	private static void initializeActorSystem(String hostname) throws UnknownHostException {
+		synchronized (actorSystemLock) {
+			if (actorSystem == null) {
+				Configuration config = new Configuration();
+				Option<scala.Tuple2<String, Object>> remoting = new Some<>(new scala.Tuple2<String, Object>(hostname, 0));
+
+				Config akkaConfig = AkkaUtils.getAkkaConfig(config, remoting);
+
+				LOG.info("Start actory system.");
+				actorSystem = ActorSystem.create("queryableWindow", akkaConfig);
+				actorSystemUsers = 1;
+			} else {
+				LOG.info("Actor system has already been started.");
+				actorSystemUsers++;
+			}
+		}
+	}
+
+	private static void closeActorSystem(FiniteDuration timeout) {
+		synchronized (actorSystemLock) {
+			actorSystemUsers--;
+
+			if (actorSystemUsers == 0 && actorSystem != null) {
+				actorSystem.shutdown();
+				actorSystem.awaitTermination(timeout);
+
+				actorSystem = null;
+			}
+		}
 	}
 
 	private static class DataInputViewAsynchronousStateHandle extends AsynchronousStateHandle<DataInputView> {
