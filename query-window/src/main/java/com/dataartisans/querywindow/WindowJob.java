@@ -33,6 +33,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 
+import java.util.Collections;
 import java.util.Properties;
 
 public class WindowJob {
@@ -66,7 +67,7 @@ public class WindowJob {
 		RegistrationService registrationService = new ZooKeeperRegistrationService(zooKeeperConfiguration);
 
 		DataStream<Long> inputStream = env
-				.addSource(new FlinkKafkaConsumer<>(sourceTopic,
+				.addSource(new FlinkKafkaConsumer<>(Collections.singletonList(sourceTopic),
 						new SimpleLongSchema(),
 						props,
 						FlinkKafkaConsumer.OffsetStore.FLINK_ZOOKEEPER,
