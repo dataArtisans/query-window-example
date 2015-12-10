@@ -55,6 +55,8 @@ public class AkkaUtils {
 		configMap.put("akka.remote.netty.tcp.transport-class", "akka.remote.transport.netty.NettyTransport");
 		configMap.put("akka.remote.netty.tcp.port", port + "");
 		configMap.put("akka.remote.netty.tcp.tcp-nodelay", "on");
+		configMap.put("akka.remote.transport-failure-detector.heartbeat-interval", "1000s");
+		configMap.put("akka.remote.transport-failure-detector.acceptable-heartbeat-pause", "6000s");
 
 		if (resolvedHostname != null && resolvedHostname.length() > 0) {
 			configMap.put("akka.remote.netty.tcp.hostname", resolvedHostname);
