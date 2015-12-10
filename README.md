@@ -62,6 +62,6 @@ Run Flink Jobs:
     
 Run AkkaStateQuery:
 
-    java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --lookupTimeout "10 seconds" --queryTimeout "5 seconds" --queryAttempts 10 --maxTimeouts 3
+    java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --lookupTimeout "10 seconds" --queryTimeout "5 seconds" --queryAttempts 10 --maxTimeouts 8
     
 The repl can be terminated by typing `stop` or `quit`.

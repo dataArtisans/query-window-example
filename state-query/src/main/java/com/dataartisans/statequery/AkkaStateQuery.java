@@ -83,7 +83,7 @@ public class AkkaStateQuery {
 				.accepts("maxTimeouts")
 				.withRequiredArg()
 				.ofType(Integer.class)
-				.defaultsTo(3);
+				.defaultsTo(8);
 
 		OptionSet options = parser.parse(args);
 
