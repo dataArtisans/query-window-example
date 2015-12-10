@@ -45,6 +45,7 @@ AkkaStateQuery parameters:
  - queryTimeout: Timeout for the queries from the QueryActor to the ResponseActor (running in the 
  queryable window operator)
  - queryAttempts: Number of query attempts before the state query fails.
+ - maxTimeouts: Number of ask timeouts before the actor cache is refreshed (this causes the retrieval of akka URLs from the registry and their resolution to ActorRefs)
 
 (In all these, adapt parameters to your environment.)
 
@@ -61,6 +62,6 @@ Run Flink Jobs:
     
 Run AkkaStateQuery:
 
-    java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --lookupTimeout "10 seconds" --queryTimeout "5 seconds" --queryAttempts 10
+    java -jar target/state-query-0.1.jar --zookeeper node1:2181 --zkPath /akkaQuery --lookupTimeout "10 seconds" --queryTimeout "5 seconds" --queryAttempts 10 --maxTimeouts 3
     
 The repl can be terminated by typing `stop` or `quit`.
