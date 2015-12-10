@@ -38,6 +38,8 @@ public class DataGenerator {
 
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+		env.getConfig().enableObjectReuse();
+
 		Properties props = new Properties();
 		props.setProperty("zookeeper.connect", zookeeper);
 		props.setProperty("bootstrap.servers", brokers);

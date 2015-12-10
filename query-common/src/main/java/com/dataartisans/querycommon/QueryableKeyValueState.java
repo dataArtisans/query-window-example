@@ -19,5 +19,5 @@
 package com.dataartisans.querycommon;
 
 public interface QueryableKeyValueState<K, V> {
-	V getValue(K key) throws WrongKeyPartitionException;
+	V getValue(long windowEnd, K key) throws WrongKeyPartitionException;
 }

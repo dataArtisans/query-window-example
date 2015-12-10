@@ -143,11 +143,22 @@ public class AkkaStateQuery {
 				continueQuery = false;
 			} else {
 				try {
-					long state = Long.parseLong(line);
+					String[] parts = line.split(",");
+					long timestamp = -1;
+					long key = -1;
+					if (parts.length == 1) {
+						// take current system time as the window that we want to query
+						timestamp = System.currentTimeMillis();
+						key = Long.parseLong(parts[0]);
+					} else if (parts.length == 2) {
+						timestamp = Long.parseLong(parts[0]);
+						key = Long.parseLong(parts[1]);
+					}
+
 
 					Future<Object> futureResult = Patterns.ask(
 						queryActor,
-						new QueryState<>(state),
+						new QueryState<>(timestamp, key),
 						new Timeout(askTimeout));
 
 					Object result = Await.result(futureResult, askTimeout);

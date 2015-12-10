@@ -48,7 +48,7 @@ public class ResponseActor<K extends Serializable, V extends Serializable> exten
 			LOG.debug("Received QueryState for key " + queryState.getKey() + ".");
 
 			try {
-				V value = keyValueState.getValue(queryState.getKey());
+				V value = keyValueState.getValue(queryState.getTimestamp(), queryState.getKey());
 
 				if (value == null) {
 					sender().tell(new StateNotFound(queryState.getKey()), getSelf());

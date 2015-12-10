@@ -35,7 +35,8 @@ WindowJob parameters:
  - source: source topic
  - sink: sink topic
  - zkPath: ZooKeeper path where the actors of the queryable window operator register themselves
- - window-size: size of the (processing-time) window in milliseconds (default: 10000)
+ - window-size: size of the (event-time) window in milliseconds (default: 10000)
+ - window-cleanup-delay: the amount of time to keep emitted windows in internal state (default: 2000)
  - checkpoint: checkpoint interval in milliseconds (default: 1000)
  - state-path: path (for example in HDFS) where checkpoints are stored
  
@@ -51,14 +52,14 @@ AkkaStateQuery parameters:
 
 Setup Kafka Topics:
 
-    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-5:2181 --partitions 5 --replication-factor 2 --topic regular-input
-    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-5:2181 --partitions 5 --replication-factor 2 --topic window-result
+    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-5:2181 --partitions 4 --replication-factor 2 --topic regular-input
+    kafka-topics.sh --create --zookeeper aljoscha-bdutil-w-5:2181 --partitions 4 --replication-factor 2 --topic window-result
 
 Run Flink Jobs:
 
-    bin/flink run -p 5 -c com.dataartisans.querywindow.WindowJob ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-5:2181,aljoscha-bdutil-w-6:2181,aljoscha-bdutil-w-7:2181 --brokers aljoscha-bdutil-w-5:6667,aljoscha-bdutil-w-6:6667,aljoscha-bdutil-w-7:6667 --source regular-input --sink window-result --zkPath /akkaQuery --window-size 600000 --checkpoint 10000 --state-path "hdfs://aljoscha-bdutil-m:8020/flink-checkpoints"
+    bin/flink run -p 4 -c com.dataartisans.querywindow.WindowJob ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-5:2181,aljoscha-bdutil-w-6:2181,aljoscha-bdutil-w-7:2181 --brokers aljoscha-bdutil-w-5:6667,aljoscha-bdutil-w-6:6667,aljoscha-bdutil-w-7:6667 --source regular-input --sink window-result --zkPath /akkaQuery --window-size 600000 --checkpoint 10000 --state-path "hdfs://aljoscha-bdutil-m:8020/flink-checkpoints"
 
-    bin/flink run -p 5 -c com.dataartisans.querywindow.DataGenerator ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-5:2181,aljoscha-bdutil-w-6:2181,aljoscha-bdutil-w-7:2181 --brokers aljoscha-bdutil-w-5:6667,aljoscha-bdutil-w-6:6667,aljoscha-bdutil-w-7:6667 --sink regular-input --sleep 0 --num-keys 64000000
+    bin/flink run -p 4 -c com.dataartisans.querywindow.DataGenerator ../query-window-0.1.jar --zookeeper aljoscha-bdutil-w-5:2181,aljoscha-bdutil-w-6:2181,aljoscha-bdutil-w-7:2181 --brokers aljoscha-bdutil-w-5:6667,aljoscha-bdutil-w-6:6667,aljoscha-bdutil-w-7:6667 --sink regular-input --sleep 0 --num-keys 64000000
     
 Run AkkaStateQuery:
 

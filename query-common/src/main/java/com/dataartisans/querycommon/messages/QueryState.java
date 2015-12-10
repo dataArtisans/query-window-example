@@ -22,8 +22,10 @@ import java.io.Serializable;
 
 public class QueryState<K extends Serializable> implements Serializable {
 	private final K key;
+	private final long timestamp;
 
-	public QueryState(K key) {
+	public QueryState(long timestamp, K key) {
+		this.timestamp = timestamp;
 		this.key = key;
 	}
 
@@ -31,8 +33,12 @@ public class QueryState<K extends Serializable> implements Serializable {
 		return key;
 	}
 
+	public long getTimestamp() {
+		return timestamp;
+	}
+
 	@Override
 	public String toString() {
-		return "QueryState(" + key + ")";
+		return "QueryState(" + timestamp + ", " + key + ")";
 	}
 }

@@ -33,6 +33,7 @@ public class TestJob {
 	public static JobGraph getTestJob(
 		int parallelism,
 		long windowSize,
+		long cleanupDelay,
 		RegistrationService registrationService) {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(parallelism);
@@ -58,7 +59,7 @@ public class TestJob {
 			.transform(
 				"Query window",
 				resultType,
-				new QueryableWindowOperator(windowSize, registrationService));
+				new QueryableWindowOperator(windowSize, cleanupDelay, registrationService));
 
 		result.print();
 

@@ -68,6 +68,7 @@ public class TestQueryableWindowOperator {
 	private static int numberSlots = 2;
 	private static int parallelism = numberTaskManager * numberSlots;
 	private static long windowSize = 1000;
+	private static long cleanupDelay = 100;
 
 	private static int queryAttempts = 10;
 	private static int maxTimeoutsUntilRefresh = 3;
@@ -109,7 +110,7 @@ public class TestQueryableWindowOperator {
 	}
 
 	@Test
-	public void testQueryableWindowOperator() throws Exception {
+	public void testQuerywableWindowOperator() throws Exception {
 		ActorGateway leader = cluster.getLeaderGateway(timeout);
 
 		ZooKeeperConfiguration zooKeeperConfiguration = new ZooKeeperConfiguration(
@@ -119,7 +120,7 @@ public class TestQueryableWindowOperator {
 		RegistrationService registrationService = new ZooKeeperRegistrationService(zooKeeperConfiguration);
 		RetrievalService<Long> retrievalService = new ZooKeeperRetrievalService<>(zooKeeperConfiguration);
 
-		JobGraph job = TestJob.getTestJob(parallelism, windowSize, registrationService);
+		JobGraph job = TestJob.getTestJob(parallelism, windowSize, cleanupDelay, registrationService);
 
 		leader.tell(new JobManagerMessages.SubmitJob(job, ListeningBehaviour.DETACHED));
 
@@ -141,7 +142,8 @@ public class TestQueryableWindowOperator {
 		while (continueQuery) {
 			long state = rnd.nextInt(10);
 
-			Future<Object> futureResult = Patterns.ask(queryActor, new QueryState<Long>(state), new Timeout(timeout));
+			// TODO: integrate window here
+			Future<Object> futureResult = Patterns.ask(queryActor, new QueryState<Long>(10, state), new Timeout(timeout));
 
 			Object result = Await.result(futureResult, timeout);
 

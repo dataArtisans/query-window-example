@@ -27,9 +27,11 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.AscendingTimestampExtractor;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 
@@ -46,10 +48,16 @@ public class WindowJob {
 		String sourceTopic = params.getRequired("source");
 		String sinkTopic = params.getRequired("sink");
 		Long windowSize = params.getLong("window-size", 10_000);
+		Long cleanupDelay = params.getLong("window-cleanup-delay", 2_000);
 		Long checkpointInterval = params.getLong("checkpoint", 1000);
 		String statePath = params.getRequired("state-path");
 
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+		env.getConfig().enableObjectReuse();
+
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.getConfig().setAutoWatermarkInterval(1000);
 
 		env.enableCheckpointing(checkpointInterval);
 		env.setStateBackend(new FsStateBackend(statePath));
@@ -69,7 +77,13 @@ public class WindowJob {
 				.addSource(new FlinkKafkaConsumer082<>(
 						sourceTopic,
 						new SimpleLongSchema(),
-						props));
+						props))
+				.assignTimestamps(new AscendingTimestampExtractor<Long>() {
+					@Override
+					public long extractAscendingTimestamp(Long aLong, long l) {
+						return System.currentTimeMillis();
+					}
+				});
 
 
 		KeyedStream<Tuple2<Long, Long>, Long> withOne = inputStream.map(new MapFunction<Long, Tuple2<Long, Long>>() {
@@ -92,7 +106,7 @@ public class WindowJob {
 		DataStream<Tuple2<Long, Long>> result = withOne
 				.transform("Query Window",
 						resultType,
-						new QueryableWindowOperator(windowSize, registrationService));
+						new QueryableWindowOperator(windowSize, cleanupDelay, registrationService));
 
 		result.addSink(
 				new FlinkKafkaProducer<>(

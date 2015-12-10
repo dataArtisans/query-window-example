@@ -136,7 +136,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 		String actorURL = retrievalService.retrieveActorURL(key);
 
 		if (actorURL == null) {
-			return null;
+			return Futures.failed(new Exception("Could not retrieve actor."));
 		} else {
 			ActorSelection selection = getContext().system().actorSelection(actorURL);
 
