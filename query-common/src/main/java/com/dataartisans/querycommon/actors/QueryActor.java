@@ -26,6 +26,7 @@ import akka.dispatch.Futures;
 import akka.dispatch.Mapper;
 import akka.dispatch.OnSuccess;
 import akka.dispatch.Recover;
+import akka.pattern.AskTimeoutException;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
 import com.dataartisans.querycommon.RetrievalService;
@@ -43,6 +44,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class QueryActor<K extends Serializable> extends UntypedActor {
 	private static final Logger LOG = LoggerFactory.getLogger(QueryActor.class);
@@ -52,23 +54,30 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 	private final FiniteDuration askTimeout;
 	private final FiniteDuration lookupTimeout;
 	private final int queryAttempts;
+	private final int maxTimeoutsUntilRefresh;
 
 	private final Map<K, ActorRef> cache = new HashMap<>();
 	private final Object cacheLock = new Object();
 
 	private final ExecutionContext executor;
 
+	private final AtomicInteger timeoutCounter;
+
 	public QueryActor(
 			RetrievalService<K> retrievalService,
 			FiniteDuration lookupTimeout,
 			FiniteDuration queryTimeout,
-			int queryAttempts) throws Exception {
+			int queryAttempts,
+			int maxTimeoutsUntilRefresh) throws Exception {
 		this.retrievalService = retrievalService;
 		this.askTimeout = queryTimeout;
 		this.lookupTimeout = lookupTimeout;
 		this.queryAttempts = queryAttempts;
+		this.maxTimeoutsUntilRefresh = maxTimeoutsUntilRefresh;
 
 		this.executor = ExecutionContext$.MODULE$.fromExecutor(new ForkJoinPool());
+
+		timeoutCounter = new AtomicInteger(0);
 
 		retrievalService.start();
 	}
@@ -101,6 +110,16 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 		}
 
 		retrievalService.refreshActorCache();
+	}
+
+	private void handleAskTimeout() throws Exception {
+		int timeoutCount = timeoutCounter.incrementAndGet();
+
+		if (timeoutCount > maxTimeoutsUntilRefresh) {
+			if (timeoutCounter.compareAndSet(timeoutCount, 0)) {
+				refreshCache();
+			}
+		}
 	}
 
 	public Future<ActorRef> getActorRefFuture(final K key) {
@@ -164,8 +183,12 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 								return Futures.failed(failure);
 							}
 						});
+				} else if (failure instanceof AskTimeoutException) {
+					LOG.debug("Ask timed out.", failure);
+					handleAskTimeout();
+					return Futures.failed(failure);
 				} else {
-					LOG.debug("State query failed with {}.", failure);
+					LOG.debug("State query failed with.", failure);
 					refreshCache();
 					return Futures.failed(failure);
 				}

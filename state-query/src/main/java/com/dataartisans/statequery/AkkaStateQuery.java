@@ -71,13 +71,19 @@ public class AkkaStateQuery {
 				.accepts("queryTimeout")
 				.withRequiredArg()
 				.ofType(String.class)
-				.defaultsTo("5 seconds");
+				.defaultsTo("1 seconds");
 
 		OptionSpec<Integer> queryAttemptsOption = parser
 				.accepts("queryAttempts")
 				.withRequiredArg()
 				.ofType(Integer.class)
 				.defaultsTo(10);
+
+		OptionSpec<Integer> maxTimeoutsUntilRefreshOption = parser
+				.accepts("maxTimeouts")
+				.withRequiredArg()
+				.ofType(Integer.class)
+				.defaultsTo(3);
 
 		OptionSet options = parser.parse(args);
 
@@ -86,6 +92,7 @@ public class AkkaStateQuery {
 		String lookupTimeoutStr = lookupTimeoutOption.value(options);
 		String queryTimeoutStr = queryTimeoutOption.value(options);
 		int queryAttempts = queryAttemptsOption.value(options);
+		int maxTimeoutsUntilRefresh = maxTimeoutsUntilRefreshOption.value(options);
 
 		FiniteDuration lookupTimeout;
 		FiniteDuration queryTimeout;
@@ -122,7 +129,8 @@ public class AkkaStateQuery {
 				retrievalService,
 				lookupTimeout,
 				queryTimeout,
-				queryAttempts),
+				queryAttempts,
+				maxTimeoutsUntilRefresh),
 			"queryActor");
 
 		boolean continueQuery = true;
