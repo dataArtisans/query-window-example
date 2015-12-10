@@ -30,10 +30,9 @@ import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 
-import java.util.Collections;
 import java.util.Properties;
 
 public class WindowJob {
@@ -67,11 +66,10 @@ public class WindowJob {
 		RegistrationService registrationService = new ZooKeeperRegistrationService(zooKeeperConfiguration);
 
 		DataStream<Long> inputStream = env
-				.addSource(new FlinkKafkaConsumer<>(Collections.singletonList(sourceTopic),
+				.addSource(new FlinkKafkaConsumer082<>(
+						sourceTopic,
 						new SimpleLongSchema(),
-						props,
-						FlinkKafkaConsumer.OffsetStore.FLINK_ZOOKEEPER,
-						FlinkKafkaConsumer.FetcherType.LEGACY_LOW_LEVEL));
+						props));
 
 
 		KeyedStream<Tuple2<Long, Long>, Long> withOne = inputStream.map(new MapFunction<Long, Tuple2<Long, Long>>() {
