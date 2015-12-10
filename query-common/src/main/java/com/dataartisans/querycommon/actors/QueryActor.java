@@ -56,7 +56,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 	private final int queryAttempts;
 	private final int maxTimeoutsUntilRefresh;
 
-	private final Map<K, ActorRef> cache = new HashMap<>();
+	private final Map<Integer, ActorRef> cache = new HashMap<>();
 	private final Object cacheLock = new Object();
 
 	private final ExecutionContext executor;
@@ -122,9 +122,10 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 		}
 	}
 
-	public Future<ActorRef> getActorRefFuture(final K key) {
+	public Future<ActorRef> getActorRefFuture(K key) {
+		final int partitionNumber = retrievalService.getPartitionID(key);
 		synchronized (cacheLock) {
-			ActorRef result = cache.get(key);
+			ActorRef result = cache.get(partitionNumber);
 
 			if(result != null) {
 				return Futures.successful(result);
@@ -146,7 +147,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 				@Override
 				public void onSuccess(ActorRef result) throws Throwable {
 					synchronized (cacheLock) {
-						cache.put(key, result);
+						cache.put(partitionNumber, result);
 					}
 				}
 			}, executor);

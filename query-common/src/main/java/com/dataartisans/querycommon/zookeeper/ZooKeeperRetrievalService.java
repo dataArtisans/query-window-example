@@ -67,7 +67,7 @@ public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
 		LOG.debug("Retrieve actor URL for key " + key + ".");
 		synchronized (lock) {
 			if (actorMap != null) {
-				int partition = key.hashCode() % actorMap.size();
+				int partition = getPartitionID(key);
 				return actorMap.get(partition);
 			} else {
 				return null;
@@ -104,5 +104,10 @@ public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
 		} else {
 			throw new RuntimeException("The CuratorFramework client has not been properly initialized.");
 		}
+	}
+
+	@Override
+	public int getPartitionID(K key) {
+		return key.hashCode() % actorMap.size();
 	}
 }

@@ -26,4 +26,6 @@ public interface RetrievalService<K> {
 	String retrieveActorURL(K key);
 
 	void refreshActorCache() throws Exception;
+
+	int getPartitionID(K key);
 }
