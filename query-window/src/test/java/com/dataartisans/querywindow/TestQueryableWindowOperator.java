@@ -35,7 +35,6 @@ import com.typesafe.config.Config;
 import org.apache.curator.test.TestingServer;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.runtime.StreamingMode;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.akka.ListeningBehaviour;
 import org.apache.flink.runtime.instance.ActorGateway;
@@ -88,7 +87,7 @@ public class TestQueryableWindowOperator {
 		config.setInteger(ConfigConstants.LOCAL_NUMBER_TASK_MANAGER, numberTaskManager);
 		config.setInteger(ConfigConstants.TASK_MANAGER_NUM_TASK_SLOTS, numberSlots);
 
-		cluster = TestBaseUtils.startCluster(config, StreamingMode.STREAMING, false);
+		cluster = TestBaseUtils.startCluster(config, false);
 	}
 
 	@AfterClass

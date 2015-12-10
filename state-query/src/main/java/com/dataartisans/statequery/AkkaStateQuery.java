@@ -32,6 +32,8 @@ import com.dataartisans.querycommon.zookeeper.ZooKeeperRetrievalService;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
@@ -40,8 +42,11 @@ import scala.concurrent.duration.FiniteDuration;
 import java.util.Scanner;
 
 public class AkkaStateQuery {
+	private static final Logger LOG = LoggerFactory.getLogger(AkkaStateQuery.class);
 
 	public static void main(String[] args) throws Exception {
+		LOG.info("Starting AkkaStateQuery. You can send queries by entering them via the command line.");
+
 		OptionParser parser = new OptionParser();
 
 		OptionSpec<String> zookeeperOption = parser
@@ -134,7 +139,7 @@ public class AkkaStateQuery {
 
 					Future<Object> futureResult = Patterns.ask(
 						queryActor,
-						new QueryState<Long>(state),
+						new QueryState<>(state),
 						new Timeout(askTimeout));
 
 					Object result = Await.result(futureResult, askTimeout);

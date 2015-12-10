@@ -25,10 +25,13 @@ import com.dataartisans.querycommon.WrongKeyPartitionException;
 import com.dataartisans.querycommon.messages.QueryState;
 import com.dataartisans.querycommon.messages.StateFound;
 import com.dataartisans.querycommon.messages.StateNotFound;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
 public class ResponseActor<K extends Serializable, V extends Serializable> extends UntypedActor {
+	private static final Logger LOG = LoggerFactory.getLogger(ResponseActor.class);
 
 	private final QueryableKeyValueState<K, V> keyValueState;
 
@@ -42,6 +45,8 @@ public class ResponseActor<K extends Serializable, V extends Serializable> exten
 			@SuppressWarnings("unchecked")
 			QueryState<K> queryState = (QueryState<K>) message;
 
+			LOG.debug("Received QueryState for key " + queryState.getKey() + ".");
+
 			try {
 				V value = keyValueState.getValue(queryState.getKey());
 
@@ -53,6 +58,8 @@ public class ResponseActor<K extends Serializable, V extends Serializable> exten
 			} catch (WrongKeyPartitionException ex) {
 				sender().tell(new Status.Failure(ex), getSelf());
 			}
+
+			LOG.debug("Handled QueryState for key " + queryState.getKey() + ".");
 		}
 	}
 }
