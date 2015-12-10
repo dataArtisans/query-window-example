@@ -21,12 +21,16 @@ package com.dataartisans.querycommon.zookeeper;
 import com.dataartisans.querycommon.RetrievalService;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.zookeeper.KeeperException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
+
+	private final static Logger LOG = LoggerFactory.getLogger(ZooKeeperRetrievalService.class);
 
 	private final Object lock = new Object();
 	private final ZooKeeperConfiguration configuration;
@@ -60,6 +64,7 @@ public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
 
 	@Override
 	public String retrieveActorURL(K key) {
+		LOG.debug("Retrieve actor URL for key " + key + ".");
 		synchronized (lock) {
 			if (actorMap != null) {
 				int partition = key.hashCode() % actorMap.size();
@@ -73,6 +78,7 @@ public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
 	@Override
 	public void refreshActorCache() throws Exception {
 		if (client != null) {
+			LOG.debug("Refresh actor cache.");
 			List<String> children = client.getChildren().forPath("/");
 
 			Map<Integer, String> newActorMap = new HashMap<>();
@@ -94,6 +100,7 @@ public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
 					actorMap = null;
 				}
 			}
+			LOG.debug("Finished refreshing actor cache.");
 		} else {
 			throw new RuntimeException("The CuratorFramework client has not been properly initialized.");
 		}

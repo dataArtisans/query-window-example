@@ -78,7 +78,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 			@SuppressWarnings("unchecked")
 			QueryState<K> queryState = (QueryState<K>) message;
 
-			LOG.info("Query state for key " + queryState.getKey() + ".");
+			LOG.debug("Query state for key " + queryState.getKey() + ".");
 
 			Future<Object> futureResult = queryStateFutureWithFailover(queryAttempts, queryState);
 
@@ -87,7 +87,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 	}
 
 	public void refreshCache() throws Exception {
-		LOG.info("Refresh local and retrieval service cache.");
+		LOG.debug("Refresh local and retrieval service cache.");
 		synchronized (cacheLock) {
 			cache.clear();
 		}
@@ -104,7 +104,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 			}
 		}
 
-		LOG.info("Retrieve actor URL from retrieval service.");
+		LOG.debug("Retrieve actor URL from retrieval service.");
 		String actorURL = retrievalService.retrieveActorURL(key);
 
 		if (actorURL == null) {
@@ -113,7 +113,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 			ActorSelection selection = getContext().system().actorSelection(actorURL);
 
 			try {
-				LOG.info("Resolve actor URL to ActorRef.");
+				LOG.debug("Resolve actor URL to ActorRef.");
 				ActorRef actorRef = Await.result(selection.resolveOne(lookupTimeout), lookupTimeout);
 
 				synchronized (cacheLock) {
@@ -131,10 +131,10 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 		ActorRef actorRef;
 
 		try {
-			LOG.info("Try to get ActorRef for key " + queryState.getKey());
+			LOG.debug("Try to get ActorRef for key " + queryState.getKey());
 			actorRef = getActorRef(queryState.getKey());
 		} catch (final Exception e) {
-			LOG.info("ActorRef retrieval failed with " + e + ".");
+			LOG.debug("ActorRef retrieval failed with " + e + ".");
 			return Patterns.after(
 					askTimeout,
 					getContext().system().scheduler(),
@@ -150,7 +150,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 		}
 
 		if (actorRef != null) {
-			LOG.info("Ask response actor for state for key " + queryState.getKey() + ".");
+			LOG.debug("Ask response actor for state for key " + queryState.getKey() + ".");
 			Future<Object> futureResult = Patterns.ask(actorRef, queryState, new Timeout(askTimeout));
 
 			@SuppressWarnings("unchecked")
@@ -158,7 +158,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 				@Override
 				public Future<Object> recover(final Throwable failure) throws Throwable {
 					if (failure instanceof WrongKeyPartitionException) {
-						LOG.info("WrongKeyPartitionException");
+						LOG.debug("WrongKeyPartitionException");
 						return Patterns.after(
 								askTimeout,
 								getContext().system().scheduler(),
@@ -171,7 +171,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 									}
 								});
 					} else {
-						LOG.info("State query failed with " + failure + ".");
+						LOG.debug("State query failed with " + failure + ".");
 						refreshCache();
 						return Futures.failed(failure);
 					}
@@ -181,7 +181,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 
 			return recoveredResult;
 		} else {
-			LOG.info("ActorRef was null. Wait for retry.");
+			LOG.debug("ActorRef was null. Wait for retry.");
 			return Patterns.after(
 				askTimeout,
 				getContext().system().scheduler(),
@@ -202,7 +202,7 @@ public class QueryActor<K extends Serializable> extends UntypedActor {
 			@Override
 			public Future<Object> recover(Throwable failure) throws Throwable {
 				if (tries > 0) {
-					LOG.info("Query state failed with " + failure + ". Try to recover. #" + tries + " left.");
+					LOG.debug("Query state failed with " + failure + ". Try to recover. #" + tries + " left.");
 					return queryStateFutureWithFailover(tries - 1, queryState);
 				} else {
 					return Futures.failed(failure);
