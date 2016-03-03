@@ -20,6 +20,7 @@ package com.dataartisans.querywindow;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
+import com.dataartisans.querycommon.MathUtils;
 import com.dataartisans.querycommon.QueryableKeyValueState;
 import com.dataartisans.querycommon.RegistrationService;
 import com.dataartisans.querycommon.WrongKeyPartitionException;
@@ -231,7 +232,7 @@ public class QueryableWindowOperator
 
 	@Override
 	public Long getValue(long timestamp, Long key) throws WrongKeyPartitionException {
-		if (key.hashCode() % getRuntimeContext().getNumberOfParallelSubtasks() != getRuntimeContext().getIndexOfThisSubtask()) {
+		if (MathUtils.murmurHash(key.hashCode()) % getRuntimeContext().getNumberOfParallelSubtasks() != getRuntimeContext().getIndexOfThisSubtask()) {
 			throw new WrongKeyPartitionException("Key " + key + " is not part of the partition " +
 					"of subtask " + getRuntimeContext().getIndexOfThisSubtask());
 		}

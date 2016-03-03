@@ -18,6 +18,7 @@
 
 package com.dataartisans.querycommon.zookeeper;
 
+import com.dataartisans.querycommon.MathUtils;
 import com.dataartisans.querycommon.RetrievalService;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.zookeeper.KeeperException;
@@ -108,32 +109,10 @@ public class ZooKeeperRetrievalService<K> implements RetrievalService<K> {
 
 	@Override
 	public int getPartitionID(K key) {
-		return murmurHash(key.hashCode()) % actorMap.size();
-	}
-
-	private static int murmurHash(int code) {
-		code *= 0xcc9e2d51;
-		code = Integer.rotateLeft(code, 15);
-		code *= 0x1b873593;
-
-		code = Integer.rotateLeft(code, 13);
-		code *= 0xe6546b64;
-
-		code ^= 4;
-		code ^= code >>> 16;
-		code *= 0x85ebca6b;
-		code ^= code >>> 13;
-		code *= 0xc2b2ae35;
-		code ^= code >>> 16;
-
-		if (code >= 0) {
-			return code;
-		}
-		else if (code != Integer.MIN_VALUE) {
-			return -code;
-		}
-		else {
+		if (actorMap == null) {
 			return 0;
+		} else {
+			return MathUtils.murmurHash(key.hashCode()) % actorMap.size();
 		}
 	}
 }

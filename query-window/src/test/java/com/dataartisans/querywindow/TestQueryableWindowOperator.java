@@ -143,7 +143,7 @@ public class TestQueryableWindowOperator {
 			long state = rnd.nextInt(10);
 
 			// TODO: integrate window here
-			Future<Object> futureResult = Patterns.ask(queryActor, new QueryState<Long>(10, state), new Timeout(timeout));
+			Future<Object> futureResult = Patterns.ask(queryActor, new QueryState<Long>(-9223372036854775808L, state), new Timeout(timeout));
 
 			Object result = Await.result(futureResult, timeout);
 
