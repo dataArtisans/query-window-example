@@ -32,8 +32,11 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AscendingTimestampExtractor;
+import org.apache.flink.streaming.api.functions.IngestionTimeExtractor;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer08;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer08;
 
 import java.util.Properties;
 
@@ -74,16 +77,11 @@ public class WindowJob {
 		RegistrationService registrationService = new ZooKeeperRegistrationService(zooKeeperConfiguration);
 
 		DataStream<Long> inputStream = env
-				.addSource(new FlinkKafkaConsumer082<>(
+				.addSource(new FlinkKafkaConsumer08<>(
 						sourceTopic,
 						new SimpleLongSchema(),
 						props))
-				.assignTimestamps(new AscendingTimestampExtractor<Long>() {
-					@Override
-					public long extractAscendingTimestamp(Long aLong, long l) {
-						return System.currentTimeMillis();
-					}
-				});
+				.assignTimestampsAndWatermarks(new IngestionTimeExtractor<Long>());
 
 
 		KeyedStream<Tuple2<Long, Long>, Long> withOne = inputStream.map(new MapFunction<Long, Tuple2<Long, Long>>() {
@@ -109,7 +107,7 @@ public class WindowJob {
 						new QueryableWindowOperator(windowSize, cleanupDelay, registrationService));
 
 		result.addSink(
-				new FlinkKafkaProducer<>(
+				new FlinkKafkaProducer08<>(
 						brokers,
 						sinkTopic,
 						new SimpleStringSerializationSchema<Tuple2<Long, Long>>()))
